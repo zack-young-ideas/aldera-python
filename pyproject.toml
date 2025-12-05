@@ -1,0 +1,63 @@
+[build-system]
+requires = ["hatchling>=1.15"]
+build-backend = "hatchling.build"
+
+[project]
+name = "aldera"
+dynamic = ["version"]
+description = "A lightweight SMS and cloud utility backend for Python web applications, powered by AWS SNS."
+readme = "README.md"
+requires-python = ">=3.10"
+license = { file = "LICENSE" }
+authors = [
+  { name = "Zack Young", email = "zackyoung8709@gmail.com" }
+]
+
+keywords = [
+  "SMS",
+  "SNS",
+  "AWS",
+  "Django",
+  "cloud",
+  "async",
+  "deployment",
+]
+
+classifiers = [
+  "Programming Language :: Python :: 3",
+  "Programming Language :: Python :: 3 :: Only",
+  "Programming Language :: Python :: 3.10",
+  "Programming Language :: Python :: 3.11",
+  "Programming Language :: Python :: 3.12",
+  "Framework :: Django",
+  "Intended Audience :: Developers",
+  "Operating System :: OS Independent",
+]
+
+dependencies = [
+  "boto3>=1.34.0",
+  "botocore>=1.34.0",
+]
+
+[project.optional-dependencies]
+async = [
+  "aioboto3>=12.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/zack-young-ideas/aldera-sms"
+Documentation = "https://github.com/zack-young-ideas/aldera-sms/wiki"
+Repository = "https://github.com/zack-young-ideas/aldera-sms"
+
+[tool.hatch.version]
+path = "aldera/__init__.py"
+
+[tool.hatch.build.targets.sdist]
+include = [
+  "aldera",
+  "README.md",
+  "LICENSE",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["aldera"]
