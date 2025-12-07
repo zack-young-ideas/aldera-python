@@ -45,19 +45,19 @@ async = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/zack-young-ideas/aldera-sms"
-Documentation = "https://github.com/zack-young-ideas/aldera-sms/wiki"
-Repository = "https://github.com/zack-young-ideas/aldera-sms"
+Homepage = "https://github.com/zack-young-ideas/aldera-python"
+Documentation = "https://github.com/zack-young-ideas/aldera-python/wiki"
+Repository = "https://github.com/zack-young-ideas/aldera-python"
 
 [tool.hatch.version]
-path = "aldera/__init__.py"
+path = "src/aldera/__init__.py"
 
 [tool.hatch.build.targets.sdist]
 include = [
-  "aldera",
+  "src",
   "README.md",
   "LICENSE",
 ]
 
 [tool.hatch.build.targets.wheel]
-packages = ["aldera"]
+packages = ["src/aldera"]

@@ -9,14 +9,14 @@ All rights reserved.
 from aldera import config as aldera_config
 
 
-class Aldera:
+class AlderaSMS:
     """
     Flask extension for Aldera.
 
     Usage:
 
-        from aldera.flask_ext import Aldera
-        aldera = Aldera()
+        from aldera.sms.flask_sms import AlderaSMS
+        aldera = AlderaSMS()
 
         def create_app():
             app = Flask(__name__)
@@ -24,6 +24,11 @@ class Aldera:
             app.config['ALDERA_AWS_REGION'] = 'us-east-1'
             aldera.init_app(app)
             return app
+
+        @app.route("/test-sms")
+        def test_sms():
+            send_sms_message("Hello from Flask!", "+15555555555")
+            return "Message sent!"
     """
 
     def __init__(self, app=None):
@@ -43,7 +48,7 @@ class Aldera:
         aldera_config.load_dict(**aldera_keys)
         aldera_config.set(DEBUG=getattr(app.config, 'DEBUG', False))
         app.extensions = getattr(app, 'extensions', {})
-        app.extensions['aldera'] = self
+        app.extensions['aldera_sms'] = self
 
     @staticmethod
     def get_config(key, default=None):

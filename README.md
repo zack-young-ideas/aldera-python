@@ -1,10 +1,9 @@
-# Aldera SMS
+# Aldera
 
-**Aldera SMS** is a lightweight, framework-agnostic SMS delivery library designed to plug seamlessly into **Django**, **Flask**, and other Python uWSGI applications.
+**Aldera** is a lightweight, framework-agnostic messaging toolkit providing a unified API for sending **email** and **SMS** messages. It supports both **Django** and **Flask**, and includes production-ready AWS backends using SES (email) and SNS (SMS).
 
-It provides a simple interface for sending SMS messages through AWS services such as SNS, while keeping your application code clean and portable.
-
-Aldera SMS automatically detects the framework you are using (via explicit initialization) and exposes a consistent API for sending SMS messages.
+Aldera is specifically designed for **AWS EC2 environments** using **IAM instance roles**.
+No AWS keys should be hardcoded or stored in application configuration.
 
 ## Features
 - **Framework-agnostic**: Works with Django and Flask; FastAPI support coming soon.
@@ -25,129 +24,160 @@ To use asynchronous functionality, add `[async]` qualifier:
 pip install aldera[async]
 ```
 
-## Configuration Guide
+## Credential Philosophy
 
-Aldera supports multiple Python web frameworks.
-Configuration differs slightly depending on the framework.
+Aldera **does not accept** `AWS_ACCESS_KEY_ID` or `AWS_SECRET_ACCESS_KEY` settings.
+
+Instead, Aldera relies entirely on the **standard AWS credential chain**, with the expectation that production deployments run on:
+- EC2 instances with an **IAM role**
+- ECS tasks with **task roles**
+- Lambda execution roles
+- Local development using AWS CLI profiles (optional)
+
+This enforces best-practice AWS security and prevents accidental leakage of sensitive credentials.
+
+## Flask Integration
+
+### Flask SMS
+
+```python
+from flask import Flask
+from aldera.sms.flask_sms import AlderaSMS
+from aldera.sms import send_sms_message
+
+aldera = AlderaSMS()
+
+def create_app():
+    app = Flask(__name__)
+    app.config['ALDERA_SMS_BACKEND'] = 'aws'
+    app.config['ALDERA_AWS_REGION'] = 'us-east-1'
+    aldera.init_app(app)
+    return app
+
+@app.route("/test-sms")
+def test_sms():
+    send_sms_message("Hello from Flask!", "+15555555555")
+    return "Message sent!"
+```
+
+#### Flask SMS config options
+
+| Key |	Description |
+|-----|-------------|
+| `ALDERA_SMS_BACKEND` | `"aws"` or `"locmem"` |
+| `ALDERA_AWS_REGION`	| AWS region for SNS |
+
+No API keys needed — Aldera uses the EC2 instance role.
+
+### Flask Email
+
+```python
+from flask import Flask
+from aldera.mail.flask_mail import AlderaEmail, Message
+
+mail = AlderaEmail()
+
+def create_app():
+    app = Flask(__name__)
+    app.config['ALDERA_AWS_REGION'] = 'us-east-1'
+    app.config['ALDERA_CONFIGURATION_SET'] = 'config-set'
+    mail.init_app(app)
+    return app
+
+@app.route('/send')
+def send_email():
+    msg = Message(
+        subject='Hello',
+        recipients=['user@example.com'],
+        body='This is a test email'
+    )
+    mail.send(msg)
+    return 'Email sent!'
+```
+
+#### Flask email config options
+| Key | Description |
+| `ALDERA_AWS_REGION` | AWS SES region |
+| `ALDERA_CONFIGURATION_SET` | Optional SES config set |
+
+Again: **no AWS credentials needed.**
+
 
 ## Django Integration
 
-### 1. Add `aldera` to your installed apps
+### Django SMS Backend
+
+Add Aldera to your installed apps:
 
 ```python
 INSTALLED_APPS = [
-    'django.contrib.admin',
-    'django.contrib.auth',
     ...
-    'aldera',
+    "aldera",
 ]
 ```
 
-### 2. Add the required `ALDERA` settings
+Configure the SMS system:
 
 ```python
 ALDERA = {
-    'SMS_BACKEND': 'aws',
+    'SMS_BACKEND': 'aws',      # or "locmem"
     'AWS_REGION': 'us-east-1',
 }
 ```
 
-### 3. Sending an SMS
+Send an SMS:
 
 ```python
 from aldera.sms import send_sms_message
 
-send_sms_message("Hello from Django!", "+15555555555")
+send_sms_message("Hello!", "+15555555555")
 ```
 
-Aldera automatically loads your Django settings from `django.conf.settings`.
+#### Credential note
 
-## Flask Integration
+No AWS keys required. Django code will automatically use the **EC2 instance role**.
 
-Flask works differently from Django since configuration is stored on the `app.config` object.
+### Django Email Backend (SES)
 
-### 1. Initialize the extension
+Use Aldera's AWS SES backend:
 
 ```python
-from flask import Flask
-from aldera.flask_ext import Aldera
-from aldera.sms import send_sms_message
-
-aldera = Aldera()
-
-def create_app():
-    app = Flask(__name__)
-
-    app.config.update({
-        "ALDERA_SMS_BACKEND": "aws",
-        "ALDERA_AWS_REGION": "us-east-1",
-    })
-
-    aldera.init_app(app)
-
-    @app.route("/test-sms")
-    def test_sms():
-        send_sms_message("Hello from Flask!", "+15555555555")
-        return "Message sent!"
-
-    return app
+EMAIL_BACKEND = "aldera.mail.backends.aws.AWSEmailBackend"
 ```
 
-Aldera retrieves settings directly from `app.config` when `init_app()` is called.
-
-## API
-
-#### `send_sms_message(message: str, phone_number: str)`
-
-Sends an SMS using the configured backend.
-
-Example:
+Configure the AWS region:
 
 ```python
-send_sms_message("Your code is 1234", "+15555555555")
+ALDERA = {
+    'AWS_REGION': 'us-east-1',
+}
 ```
 
-## Environment Variables (Optional)
-
-Aldera supports environment variable overrides:
-
-| Variable | Description |
-|---|---|
-| `ALDERA_SMS_BACKEND` | Overrides backend selection |
-| `ALDERA_AWS_REGION` | Overrides AWS region |
-
-This allows flexible configuration across staging/production deployments.
-
-## Backends
-
-### AWS SNS (`aws`)
-
-Primarily meant to be used on an EC2 instance. Requires the instance to have an IAM role with permission to publish messages via AWS Simple Notification Service.
-
-### Asynchronous AWS SNS (`async_aws`)
-
-Connects to AWS SNS using an asynchronous implementation of boto3. Also requires and IAM role with permission to publish messages via AWS SNS.
+Then send email using Django’s built-in tools:
 
 ```python
-from aldera.sms import send_async_message
+from django.core.mail import send_mail
 
-async def send_code():
-    await send_async_message("Hello from async!", "+15555555555")
+send_mail(
+    "Subject",
+    "Body",
+    "from@example.com",
+    ["to@example.com"],
+)
 ```
 
-### Local Memory (`locmem`)
+## Why No AWS Keys?
 
-Meant primarily for unit testing. Publishes messages to an attribute of the `sms` object.
+Aldera is designed to run in environments where IAM roles are the correct security mechanism.
+Hardcoding credentials is insecure, error-prone, and unnecessary.
 
-```python
-from aldera import sms
-from aldera.sms import send_sms_message
+Aldera follows AWS best practices by relying on:
+- EC2 metadata credentials
+- ECS task roles
+- Lambda execution roles
+- Optional AWS CLI profiles during local development
 
-send_sms_message("Hello unit tests!", "+15555555555")
-print(len(sms.messages))                   # -> 1
-print(sms.messages[0].message)             # -> "Hello unit tests!"
-print(sms.messages[0].recipeint_number)    # -> "+15555555555"
-```
+This makes migrations, deployments, and CI/CD pipelines safer and easier.
 
 ## Contributing
 
